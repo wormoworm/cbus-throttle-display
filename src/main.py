@@ -17,7 +17,7 @@ def cbus_message_listener(cbus_message: CbusMessage):
     # pylint: disable=unused-argument
 def os_signal_handler(signum, frame):
     """Handle OS signal"""
-    logging.debug(f"Received signal from OS ({0}), shutting down gracefully...".format(signum))
+    logging.debug(f"Received signal from OS ({0}), shutting down gracefully...")
     cbus_interface.close()
     sys.exit()
 
