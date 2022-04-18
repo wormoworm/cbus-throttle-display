@@ -5,6 +5,7 @@ target=$1
 install_dependencies=$2
 
 dir_application=/home/pi/cbus-throttle-display
+poetry=/home/pi/.poetry/bin/poetry
 
 printf "Running deployment script, target is $target. Will install to $dir_application. Install dependencies = $install_dependencies\n"
 
@@ -15,9 +16,9 @@ scp -rq src pyproject.toml pi@$target:$dir_application
 # 2: Update dependencies, if requested
 if [ "$install_dependencies" = true ] ; then
     printf "Updating dependencies...\n"
-    ssh pi@$target "cd $dir_application && poetry update"
+    ssh pi@$target "cd $dir_application && $poetry update"
 fi
 
 # 3: Run the application
 printf "Running application...\n--------------------------------------------------\n"
-ssh pi@$target "cd $dir_application && poetry run python -u src/main.py"
+ssh pi@$target "cd $dir_application && $poetry run python -u src/main.py"
