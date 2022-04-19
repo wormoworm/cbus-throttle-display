@@ -1,5 +1,6 @@
 # A deployment script that pushes the source code to a remote machine and then runs the chosen application.
 # The stdout from the application is captured to help with debugging.
+set -x
 
 target=$1
 install_dependencies=$2
@@ -21,4 +22,5 @@ fi
 
 # 3: Run the application
 printf "Running application...\n--------------------------------------------------\n"
+ssh pi@$target "killall python"
 ssh pi@$target "cd $dir_application && $poetry run python -u src/main.py"

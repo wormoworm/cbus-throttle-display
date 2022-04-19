@@ -3,7 +3,8 @@ import logging
 import asyncio
 import signal
 from rich.logging import RichHandler
-from cbus import CbusMessage, CbusInterface
+from cbus import CbusInterface
+from cbus_messages import CbusMessage, CbusMessageEngineReport, CbusMessageRequestEngineSession, CbusMessageSetEngineFunctions, CbusMessageSetEngineSpeedDir, CbusMessageReleaseEngine, Direction, FunctionState
 
 DEBUG = True
 CAN_INTERFACE = "can0"
@@ -12,19 +13,35 @@ CAN_BITRATE = 125000
 cbus_interface: CbusInterface
 
 def cbus_message_listener(cbus_message: CbusMessage):
-    logging.debug(f"Opcode: {cbus_message.op_code}")
+    if isinstance(cbus_message, CbusMessageRequestEngineSession):
+        logging.debug("Engine request for address: %d", cbus_message.address)
+    elif isinstance(cbus_message, CbusMessageReleaseEngine):
+        logging.debug("Release engine request for session: %d", cbus_message.session_id)
+    elif isinstance(cbus_message, CbusMessageEngineReport):
+        logging.debug("Engine report for session: %d", cbus_message.session_id)
+        logging.debug("Engine report address: %d", cbus_message.address)
+        logging.info("Speed is %d", cbus_message.speed)
+        if cbus_message.direction == Direction.FORWARD:
+            logging.info("Direction is forward")
+    elif isinstance(cbus_message, CbusMessageSetEngineSpeedDir):
+        logging.info("Speed is %d", cbus_message.speed)
+        if cbus_message.direction == Direction.FORWARD:
+            logging.info("Direction is forward")
+    elif isinstance(cbus_message, CbusMessageSetEngineFunctions):
+        for function in cbus_message.functions:
+            logging.debug("F%d is %s", function.number, FunctionState(function.state))
 
     # pylint: disable=unused-argument
 def os_signal_handler(signum, frame):
     """Handle OS signal"""
-    logging.debug(f"Received signal from OS ({0}), shutting down gracefully...")
+    logging.debug(f"Received signal from OS ({signum}), shutting down gracefully...")
     cbus_interface.close()
     sys.exit()
 
 if __name__ == "__main__":
     # Set up rich logging.
     logging.basicConfig(
-        level="DEBUG" if DEBUG else "WARNING",
+        level="DEBUG" if DEBUG else "INFO",
         format="%(message)s",
         datefmt="[%X]",
         handlers=[RichHandler(omit_repeated_times=False)],

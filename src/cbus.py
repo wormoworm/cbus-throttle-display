@@ -6,17 +6,7 @@ import asyncio
 from rich.logging import RichHandler
 from can import Message
 from typing import Callable
-
-class CbusMessage:
-
-    id: int
-    op_code: int
-    data: bytearray
-
-    def __init__(self, id: int, op_code: int, data: bytearray):
-        self.id = id
-        self.op_code = op_code
-        self.data = data
+from cbus_messages import CbusMessageEngineReport, CbusMessageReleaseEngine, CbusMessageSetEngineFunctions, CbusMessageSetEngineSpeedDir, CbusOpcode, CbusMessage, CbusMessageRequestEngineSession
 
 class CbusInterface:
 
@@ -51,7 +41,24 @@ class CbusInterface:
     def on_message_received(self, message: Message):
         # TODO: Decode message and pass to handler
         id = message.arbitration_id
-        op_code = message.data[0]
-        data = message.data[1:]
-        cbus_message = CbusMessage(id, op_code, data)
-        self.listener(cbus_message)
+        if message.dlc > 0:
+            op_code = message.data[0]
+            logging.debug("Message Opcode: %s", op_code)
+            cbus_message: CbusMessage = None
+            if op_code == CbusOpcode.RLOC:
+                cbus_message = CbusMessageRequestEngineSession(message)
+            elif op_code == CbusOpcode.KLOC:
+                cbus_message = CbusMessageReleaseEngine(message)
+            elif op_code == CbusOpcode.DSPD:
+                cbus_message = CbusMessageSetEngineSpeedDir(message)
+            elif op_code == CbusOpcode.DFUN:
+                cbus_message = CbusMessageSetEngineFunctions(message)
+            elif op_code == CbusOpcode.PLOC:
+                cbus_message = CbusMessageEngineReport(message)
+            if cbus_message is not None:
+                self.listener(cbus_message)
+            else:
+                # logging.warning("CBUS message was not created")
+                pass
+        else:
+            logging.warning("CAN Message has no payload")
