@@ -1,10 +1,12 @@
+from gettext import install
 import sys
 import logging
 import asyncio
 import signal
 from rich.logging import RichHandler
 from cbus import CbusInterface
-from cbus_messages import CbusMessage, CbusMessageEngineReport, CbusMessageRequestEngineSession, CbusMessageSetEngineFunctions, CbusMessageSetEngineSpeedDir, CbusMessageReleaseEngine, Direction, FunctionState
+from cbus_messages import CbusMessage, CbusMessageEngineReport, CbusMessageRequestEngineSession, CbusMessageSetEngineFunctions, CbusMessageSetEngineSpeedDir, CbusMessageReleaseEngine, CbusSessionMessage, Direction, FunctionState
+from throttle_helper import ThrottleHelper
 
 DEBUG = True
 CAN_INTERFACE = "can0"
@@ -12,24 +14,77 @@ CAN_BITRATE = 125000
 
 cbus_interface: CbusInterface
 
+pending_address: str = None
+session_id: int = None
+
+throttle_helper = ThrottleHelper()
+
+def is_session_set() -> bool:
+    return session_id is not None
+
+
+def set_session_id(id: int):
+    session_id = id
+
+
+def is_session_message_relevant(session_message: CbusSessionMessage) -> bool:
+    return session_message.session_id == session_id
+
+
+def update_throttle_helper_from_engine_report(engine_report_message: CbusMessageEngineReport):
+    throttle_helper.speed = engine_report_message.speed
+    throttle_helper.direction = engine_report_message.direction
+    throttle_helper.set_function_states(engine_report_message.functions)
+
+
+def process_session_message(session_message: CbusSessionMessage):
+    if isinstance(session_message, CbusMessageReleaseEngine):
+        logging.debug("Release engine request for session: %d", session_message.session_id)
+        throttle_helper.release()
+        session_id = None
+    elif isinstance(session_message, CbusMessageEngineReport):
+        logging.debug("Engine report for session: %d", session_message.session_id)
+        update_throttle_helper_from_engine_report(session_message)
+    elif isinstance(session_message, CbusMessageSetEngineSpeedDir):
+        logging.info("Speed / direction for session:  %d", session_message.session_id)
+        throttle_helper.speed = session_message.speed
+        throttle_helper.direction = session_message.direction
+    elif isinstance(session_message, CbusMessageSetEngineFunctions):
+        logging.info("Functions for session:  %d", session_message.session_id)
+        throttle_helper.set_function_states(session_message.functions)
+
+
+def update_display():
+    logging.debug("Update display")
+
+
 def cbus_message_listener(cbus_message: CbusMessage):
-    if isinstance(cbus_message, CbusMessageRequestEngineSession):
-        logging.debug("Engine request for address: %d", cbus_message.address)
-    elif isinstance(cbus_message, CbusMessageReleaseEngine):
-        logging.debug("Release engine request for session: %d", cbus_message.session_id)
+    global pending_address
+    # Check if the current session ID is set.
+    if is_session_set():
+        # Check if this message is a CbusSessionMessage.
+        if isinstance(cbus_message, CbusSessionMessage):
+            # A session is set, so this CbusSessionMessages should only be handled if they match the current session ID.
+            if is_session_message_relevant(cbus_message):
+                # The message is relevant, so process it
+                process_session_message(cbus_message)
+                update_display()
+    # Session is not set, so if this is a CbusMessageRequestEngineSession, cache the address for later (it will be used for a lookup when the command station replies with a CbusMessageEngineReport).
+    elif isinstance(cbus_message, CbusMessageRequestEngineSession):
+        pending_address = cbus_message.address
+    # Session is not set, so if this message is a CbusMessageEngineReport, set the session ID, and instruct the ThrottleHelper to fetch the roster entry details (using the address we cached previously).
     elif isinstance(cbus_message, CbusMessageEngineReport):
-        logging.debug("Engine report for session: %d", cbus_message.session_id)
-        logging.debug("Engine report address: %d", cbus_message.address)
-        logging.info("Speed is %d", cbus_message.speed)
-        if cbus_message.direction == Direction.FORWARD:
-            logging.info("Direction is forward")
-    elif isinstance(cbus_message, CbusMessageSetEngineSpeedDir):
-        logging.info("Speed is %d", cbus_message.speed)
-        if cbus_message.direction == Direction.FORWARD:
-            logging.info("Direction is forward")
-    elif isinstance(cbus_message, CbusMessageSetEngineFunctions):
-        for function in cbus_message.functions:
-            logging.debug("F%d is %s", function.number, FunctionState(function.state))
+        set_session_id(cbus_message.session_id)
+        if pending_address:
+            if cbus_message.address == pending_address:
+                throttle_helper.set_address(pending_address)
+                update_throttle_helper_from_engine_report(cbus_message)
+                pending_address = None
+            else:
+                logging.error("Received a CbusMessageEngineReport, but address did not match pending address.")
+        else:
+            logging.error("Received a CbusMessageEngineReport, but pending address is not set.")
+
 
     # pylint: disable=unused-argument
 def os_signal_handler(signum, frame):

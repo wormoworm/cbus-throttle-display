@@ -84,10 +84,8 @@ def get_function_state(byte: int, function_number: int) -> FunctionState:
 
 
 def parse_functions(byte: int, first_function_number: int, n_functions: int) -> List[Function]:
-    logging.debug("Function byte: %d", byte)
     functions = []
     for i in range(first_function_number, first_function_number + n_functions):
-        logging.debug("Handling F%d", i)
         functions.append(Function(i, get_function_state(byte, i)))
     return functions
 
@@ -142,14 +140,17 @@ class CbusMessageEngineReport(CbusSessionMessage):
     address: int
     direction: Direction
     speed: int
-    # TODO: Functions (bytes 5 to 7)
+    functions: List[Function]
 
     def __init__(self, can_message: Message):
         super().__init__(can_message)
         self.address = get_decoder_address(can_message.data[2], can_message.data[3])
         self.direction = get_direction(can_message.data[4])
         self.speed = get_speed(can_message.data[4])
-        logging.debug("Report, F0-4: %d", can_message.data[5])
+        self.functions = []
+        self.functions.extend(parse_functions(can_message.data[5], 0, 5))
+        self.functions.extend(parse_functions(can_message.data[6], 5, 4))
+        self.functions.extend(parse_functions(can_message.data[7], 9, 4))
 
 
 class CbusMessageSetEngineFunctions(CbusSessionMessage):
