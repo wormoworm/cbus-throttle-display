@@ -1,5 +1,6 @@
 from gettext import install
 import sys
+import os
 import logging
 import asyncio
 import signal
@@ -7,6 +8,7 @@ from rich.logging import RichHandler
 from cbus import CbusInterface
 from cbus_messages import CbusMessage, CbusMessageEngineReport, CbusMessageRequestEngineSession, CbusMessageSetEngineFunctions, CbusMessageSetEngineSpeedDir, CbusMessageReleaseEngine, CbusSessionMessage, Direction, FunctionState
 from throttle_helper import ThrottleHelper
+import PySimpleGUI as gui
 
 DEBUG = True
 CAN_INTERFACE = "can0"
@@ -18,6 +20,8 @@ pending_address: str = None
 session_id: int = None
 
 throttle_helper = ThrottleHelper()
+
+roster_entry_window: gui.Window = None
 
 def is_session_set() -> bool:
     return session_id is not None
@@ -39,10 +43,13 @@ def update_throttle_helper_from_engine_report(engine_report_message: CbusMessage
 
 
 def process_session_message(session_message: CbusSessionMessage):
+    global session_id, throttle_helper, roster_entry_window
     if isinstance(session_message, CbusMessageReleaseEngine):
         logging.debug("Release engine request for session: %d", session_message.session_id)
         throttle_helper.release()
         session_id = None
+        if roster_entry_window:
+            roster_entry_window.close()
     elif isinstance(session_message, CbusMessageEngineReport):
         logging.debug("Engine report for session: %d", session_message.session_id)
         update_throttle_helper_from_engine_report(session_message)
@@ -50,6 +57,9 @@ def process_session_message(session_message: CbusSessionMessage):
         logging.debug("Speed / direction for session:  %d", session_message.session_id)
         throttle_helper.speed = session_message.speed
         throttle_helper.direction = session_message.direction
+        if roster_entry_window:
+            logging.debug("Updating speed, will be %d", throttle_helper.speed)
+            roster_entry_window["speed"].update(f"Speed: {throttle_helper.speed}")  # TODO: Not working
     elif isinstance(session_message, CbusMessageSetEngineFunctions):
         logging.debug("Functions for session:  %d", session_message.session_id)
         throttle_helper.set_function_states(session_message.functions)
@@ -80,12 +90,64 @@ def cbus_message_listener(cbus_message: CbusMessage):
             if cbus_message.address == pending_address:
                 throttle_helper.set_address(pending_address)
                 update_throttle_helper_from_engine_report(cbus_message)
+                display_roster_entry_window()
                 pending_address = None
             else:
                 logging.error("Received a CbusMessageEngineReport, but address did not match pending address.")
         else:
             logging.error("Received a CbusMessageEngineReport, but pending address is not set.")
 
+
+def display_roster_entry_window():
+    global roster_entry_window, throttle_helper
+
+    if os.environ.get('DISPLAY','') == '':
+        logging.warning('no display found. Using :0.0')
+        os.environ.__setitem__('DISPLAY', ':0.0')
+    gui.theme('DarkAmber')   # Add a touch of color
+    # All the stuff inside your window.
+
+    layout = [  [gui.Text(throttle_helper.roster_entry["name"])],
+            [gui.Text(f"Speed: {throttle_helper.speed}", key="speed")] ]
+    roster_entry_window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
+
+async def test_gui():
+    global throttle_helper
+    if os.environ.get('DISPLAY','') == '':
+        logging.warning('no display found. Using :0.0')
+        os.environ.__setitem__('DISPLAY', ':0.0')
+    gui.theme('DarkAmber')   # Add a touch of color
+# All the stuff inside your window.
+
+    window: gui.Window = None
+    
+    # Create the Window
+    while True:
+        # window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
+        # event, values = window.read(timeout=20)
+
+        # if event is None:
+        #     break
+
+        # elif event == "_TEST_":
+        #     print("Test")
+
+        if window:
+            window.close()
+        
+        if throttle_helper.roster_entry:
+            layout = [  [gui.Text(throttle_helper.roster_entry["name"])],
+            [gui.Text(throttle_helper.roster_entry["address"])] ]
+            window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
+        
+            # window.find_element("Name").Update(throttle_helper.roster_entry["name"])
+        else:
+            layout = [  [gui.Text("No locomotive", key = "Name")]]
+            window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
+
+
+        await asyncio.sleep(0.1)
+    window.Close()
 
     # pylint: disable=unused-argument
 def os_signal_handler(signum, frame):
@@ -109,7 +171,10 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, os_signal_handler)
     signal.signal(signal.SIGHUP, os_signal_handler)
 
+    # test_gui()
+
     cbus_interface = CbusInterface(CAN_INTERFACE, CAN_BITRATE)
     loop = asyncio.get_event_loop()
     loop.create_task(cbus_interface.listen(cbus_message_listener))
+    # loop.create_task(test_gui())
     loop.run_forever()

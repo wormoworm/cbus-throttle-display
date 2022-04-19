@@ -43,7 +43,7 @@ class CbusInterface:
         id = message.arbitration_id
         if message.dlc > 0:
             op_code = message.data[0]
-            # logging.debug("Message Opcode: %s", op_code)
+            logging.debug("Message Opcode: %s", op_code)
             cbus_message: CbusMessage = None
             if op_code == CbusOpcode.RLOC:
                 cbus_message = CbusMessageRequestEngineSession(message)

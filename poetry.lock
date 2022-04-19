@@ -75,6 +75,14 @@ python-versions = ">=3.6.8"
 diagrams = ["railroad-diagrams", "jinja2"]
 
 [[package]]
+name = "pysimplegui"
+version = "4.59.0"
+description = "Python GUIs for Humans. Launched in 2018. It's 2022 & PySimpleGUI is an ACTIVE & supported project. Super-simple to create custom GUI's. 325+ Demo programs & Cookbook for rapid start. Extensive documentation. Main docs at www.PySimpleGUI.org. Fun & your success are the focus. Examples using Machine Learning (GUI, OpenCV Integration), Rainmeter Style Desktop Widgets, Matplotlib + Pyplot, PIL support, add GUI to command line scripts, PDF & Image Viewers. Great for beginners & advanced GUI programmers."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "python-can"
 version = "4.0.0"
 description = "Controller Area Network interface module for Python"
@@ -182,7 +190,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "a0e7c13be1f120fdc89542afd258f931591d4f981e5465a804e79c0ea6aebb47"
+content-hash = "ee8df41166bf8b76cfecf574ae4fea512d01a86db5e658e44e316d5cef8b9b9e"
 
 [metadata.files]
 certifi = [
@@ -248,6 +256,10 @@ pygments = [
 pyparsing = [
     {file = "pyparsing-3.0.8-py3-none-any.whl", hash = "sha256:ef7b523f6356f763771559412c0d7134753f037822dad1b16945b7b846f7ad06"},
     {file = "pyparsing-3.0.8.tar.gz", hash = "sha256:7bf433498c016c4314268d95df76c81b842a4cb2b276fa3312cfb1e1d85f6954"},
+]
+pysimplegui = [
+    {file = "PySimpleGUI-4.59.0-py3-none-any.whl", hash = "sha256:1642db0b2cbe59c50da40b86af51cda3abbda6ddcad40bd04c0a0550112b3d46"},
+    {file = "PySimpleGUI-4.59.0.tar.gz", hash = "sha256:196e81c0a437eac4893595f2ee69515b9841e608d351bd3c577dd7a913454f51"},
 ]
 python-can = [
     {file = "python-can-4.0.0.tar.gz", hash = "sha256:59d92846ffb981e634e9e0f2d14a6b4967a875e3869bd2ba168c92c4db6b8b5d"},
