@@ -2,6 +2,8 @@ from audioop import add
 import logging
 from typing import List
 from cbus_messages import Function, Direction
+from requests import get, Response
+import json
 
 class ThrottleHelper:
 
@@ -14,7 +16,16 @@ class ThrottleHelper:
     def set_address(self, address: int):
         # TODO: Fetch from roster API.
         logging.debug("Fetching details for address %d", address)
+        roster_entry_response = get(f"https://roster.tomstrains.co.uk/api/v2/roster_entry/address/{address}")
+        if roster_entry_response.status_code == 200:
+            self.process_roster_entry_response(roster_entry_response)
+        else:
+            logging.error("Could not fetch roster entry with address %d (error code %d)", address, roster_entry_response.status_code)
     
+    def process_roster_entry_response(self, roster_entry_response: Response):
+        self.roster_entry = roster_entry_response.json()["roster_entry"]
+        # logging.debug(json.dumps(self.roster_entry, indent=4))
+
 
     def release(self):
         self.roster_entry = None

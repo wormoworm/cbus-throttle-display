@@ -24,6 +24,7 @@ def is_session_set() -> bool:
 
 
 def set_session_id(id: int):
+    global session_id
     session_id = id
 
 
@@ -46,11 +47,11 @@ def process_session_message(session_message: CbusSessionMessage):
         logging.debug("Engine report for session: %d", session_message.session_id)
         update_throttle_helper_from_engine_report(session_message)
     elif isinstance(session_message, CbusMessageSetEngineSpeedDir):
-        logging.info("Speed / direction for session:  %d", session_message.session_id)
+        logging.debug("Speed / direction for session:  %d", session_message.session_id)
         throttle_helper.speed = session_message.speed
         throttle_helper.direction = session_message.direction
     elif isinstance(session_message, CbusMessageSetEngineFunctions):
-        logging.info("Functions for session:  %d", session_message.session_id)
+        logging.debug("Functions for session:  %d", session_message.session_id)
         throttle_helper.set_function_states(session_message.functions)
 
 

@@ -8,6 +8,7 @@ authors = ["Tom Homewood"]
 python = "^3.8"
 python-can = "^4.0.0"
 rich = "^12.2.0"
+requests = "^2.27.1"
 
 [tool.poetry.dev-dependencies]
 
