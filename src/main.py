@@ -4,13 +4,14 @@ import os
 import logging
 import asyncio
 import signal
+from turtle import width
 from rich.logging import RichHandler
 from cbus import CbusInterface
 from cbus_messages import CbusMessage, CbusMessageEngineReport, CbusMessageRequestEngineSession, CbusMessageSetEngineFunctions, CbusMessageSetEngineSpeedDir, CbusMessageReleaseEngine, CbusSessionMessage, Direction, FunctionState
 from throttle_helper import ThrottleHelper
-import PySimpleGUI as gui
+import PySimpleGUI as sg
 
-DEBUG = True
+DEBUG = False
 CAN_INTERFACE = "can0"
 CAN_BITRATE = 125000
 
@@ -21,7 +22,7 @@ session_id: int = None
 
 throttle_helper = ThrottleHelper()
 
-roster_entry_window: gui.Window = None
+roster_entry_window: sg.Window = None
 
 def is_session_set() -> bool:
     return session_id is not None
@@ -59,7 +60,7 @@ def process_session_message(session_message: CbusSessionMessage):
         throttle_helper.direction = session_message.direction
         if roster_entry_window:
             logging.debug("Updating speed, will be %d", throttle_helper.speed)
-            roster_entry_window["speed"].update(f"Speed: {throttle_helper.speed}")  # TODO: Not working
+            # roster_entry_window["speed"].update(f"Speed: {throttle_helper.speed}")  # TODO: Not working
     elif isinstance(session_message, CbusMessageSetEngineFunctions):
         logging.debug("Functions for session:  %d", session_message.session_id)
         throttle_helper.set_function_states(session_message.functions)
@@ -98,56 +99,81 @@ def cbus_message_listener(cbus_message: CbusMessage):
             logging.error("Received a CbusMessageEngineReport, but pending address is not set.")
 
 
+def create_function_grid_item(function_number: int, alternate_bg_colour: bool):
+    global throttle_helper
+    background_colour = "#111111" if alternate_bg_colour else "#181818"
+    function_label = sg.Text(f"F{function_number}", expand_x=True, size=(22,1), pad=2, background_color=background_colour)
+    try:
+        function_name = sg.Text(f"{throttle_helper.get_function(function_number)['name']}", expand_x=True, pad=2, background_color=background_colour, font="_ 14")
+    except IndexError:
+        function_name = sg.Text("", background_color=background_colour)
+    layout = [ [function_label], [function_name]]
+    return sg.Frame(title=None, layout=layout, pad=2, expand_y=True, background_color=background_colour, border_width=0)
+
+
 def display_roster_entry_window():
     global roster_entry_window, throttle_helper
 
     if os.environ.get('DISPLAY','') == '':
         logging.warning('no display found. Using :0.0')
         os.environ.__setitem__('DISPLAY', ':0.0')
-    gui.theme('DarkAmber')   # Add a touch of color
-    # All the stuff inside your window.
-
-    layout = [  [gui.Text(throttle_helper.roster_entry["name"])],
-            [gui.Text(f"Speed: {throttle_helper.speed}", key="speed")] ]
-    roster_entry_window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
-
-async def test_gui():
-    global throttle_helper
-    if os.environ.get('DISPLAY','') == '':
-        logging.warning('no display found. Using :0.0')
-        os.environ.__setitem__('DISPLAY', ':0.0')
-    gui.theme('DarkAmber')   # Add a touch of color
-# All the stuff inside your window.
-
-    window: gui.Window = None
     
-    # Create the Window
-    while True:
-        # window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
-        # event, values = window.read(timeout=20)
+    # Set the theme
+    sg.theme('Black')
+    # All the stuff inside your window.
+    # throttle_helper.roster_entry["functions"]
 
-        # if event is None:
-        #     break
+    info = [
+        [sg.Text(throttle_helper.roster_entry["name"], expand_x=True)],
+        [sg.Text(throttle_helper.roster_entry["number"], expand_x=True)]
+        ]
+    info_section = sg.Column(info, expand_y=True, pad=0, size=(526, 100), background_color="red")
 
-        # elif event == "_TEST_":
-        #     print("Test")
+    functions = [[create_function_grid_item(row + (column * 10), (row + column) % 2 == 0) for column in range(3)] for row in range(10)]
+    functions_section = sg.Column(functions, expand_y=True, pad=0)
 
-        if window:
-            window.close()
+    layout = [  [info_section, functions_section] ]
+    roster_entry_window = sg.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), margins=(0,0), keep_on_top=True, background_color="#657381").Finalize()
+    # Hide the mouse cursor. # TODO: Not working
+    roster_entry_window.set_cursor("none")
+
+# async def test_gui():
+#     global throttle_helper
+#     if os.environ.get('DISPLAY','') == '':
+#         logging.warning('no display found. Using :0.0')
+#         os.environ.__setitem__('DISPLAY', ':0.0')
+#     gui.theme('DarkAmber')   # Add a touch of color
+# # All the stuff inside your window.
+
+#     window: gui.Window = None
+    
+#     # Create the Window
+#     while True:
+#         # window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
+#         # event, values = window.read(timeout=20)
+
+#         # if event is None:
+#         #     break
+
+#         # elif event == "_TEST_":
+#         #     print("Test")
+
+#         if window:
+#             window.close()
         
-        if throttle_helper.roster_entry:
-            layout = [  [gui.Text(throttle_helper.roster_entry["name"])],
-            [gui.Text(throttle_helper.roster_entry["address"])] ]
-            window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
+#         if throttle_helper.roster_entry:
+#             layout = [  [gui.Text(throttle_helper.roster_entry["name"])],
+#             [gui.Text(throttle_helper.roster_entry["address"])] ]
+#             window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
         
-            # window.find_element("Name").Update(throttle_helper.roster_entry["name"])
-        else:
-            layout = [  [gui.Text("No locomotive", key = "Name")]]
-            window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
+#             # window.find_element("Name").Update(throttle_helper.roster_entry["name"])
+#         else:
+#             layout = [  [gui.Text("No locomotive", key = "Name")]]
+#             window = gui.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), keep_on_top=True).Finalize()
 
 
-        await asyncio.sleep(0.1)
-    window.Close()
+#         await asyncio.sleep(0.1)
+#     window.Close()
 
     # pylint: disable=unused-argument
 def os_signal_handler(signum, frame):
@@ -155,6 +181,12 @@ def os_signal_handler(signum, frame):
     logging.debug(f"Received signal from OS ({signum}), shutting down gracefully...")
     cbus_interface.close()
     sys.exit()
+
+def DUMMY_manual_load(address: str):
+    global throttle_helper
+    throttle_helper.set_address(address)
+    # update_throttle_helper_from_engine_report(cbus_message)
+    display_roster_entry_window()
 
 if __name__ == "__main__":
     # Set up rich logging.
@@ -177,4 +209,6 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(cbus_interface.listen(cbus_message_listener))
     # loop.create_task(test_gui())
+    # TODO:TEMP
+    DUMMY_manual_load("6016")
     loop.run_forever()

@@ -5,6 +5,8 @@ from cbus_messages import Function, Direction
 from requests import get, Response
 import json
 
+MAX_FUNCTIONS = 28
+
 class ThrottleHelper:
 
     # _address: int
@@ -33,6 +35,17 @@ class ThrottleHelper:
         self.direction = None
         self.functions.clear()
         logging.debug("Released")
+
+    
+    def get_function(self, function_number: int) -> dict:
+        for i in range(MAX_FUNCTIONS):
+            try:
+                function = self.roster_entry["functions"][i]
+                if function["number"] == function_number:
+                    return function
+            except IndexError:
+                pass
+        raise IndexError
 
     
     def set_function_states(self, functions: List[Function]):

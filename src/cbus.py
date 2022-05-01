@@ -39,7 +39,6 @@ class CbusInterface:
         self.notifier = can.Notifier(self.bus, listeners = [self.on_message_received], loop = asyncio.get_event_loop())
 
     def on_message_received(self, message: Message):
-        # TODO: Decode message and pass to handler
         id = message.arbitration_id
         if message.dlc > 0:
             op_code = message.data[0]
