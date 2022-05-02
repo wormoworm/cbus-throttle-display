@@ -19,6 +19,8 @@ DEBUG = False
 CAN_INTERFACE = "can0"
 CAN_BITRATE = 125000
 
+MAX_FUNCTIONS = 28
+
 FONT_H1 = "_ 30"
 FONT_H2 = "_ 24"
 FONT_H3 = "_ 18"
@@ -153,13 +155,13 @@ def display_roster_entry_window():
     
     info_height = 600
     if throttle_helper.roster_entry["image_file_path"]:
-        with Image.open(requests.get(f"https://roster.tomstrains.co.uk/api/v2/roster_entry/{throttle_helper.roster_entry['roster_id']}/image?size=502", stream=True).raw) as image:
+        with Image.open(requests.get(f"https://roster.tomstrains.co.uk/api/v2/roster_entry/{throttle_helper.roster_entry['roster_id']}/image?size=500", stream=True).raw) as image:
             image_bytes = BytesIO()
             image.save(image_bytes, format="png")
             # Calculate the image's aspect ratio, so that was can resize it correctly
             width, height = image.size
             aspect_ratio = width / height
-            desired_width = 502
+            desired_width = 500
             desired_height = desired_width / aspect_ratio
             lhs_items.append([sg.Image(source=image_bytes.getvalue(), size=(desired_width, desired_height), pad=0)])
             info_height-= desired_height
@@ -170,7 +172,7 @@ def display_roster_entry_window():
 
     lhs = sg.Column(lhs_items, pad=0, size=(502, 600))
 
-    functions = [[create_function_grid_item(row + (column * 10), (row + column) % 2 == 0) for column in range(3)] for row in range(10)]
+    functions = [[create_function_grid_item(row + (column * 10), (row + column) % 2 == 0) if row + (column * 10) <= MAX_FUNCTIONS else sg.VPush() for column in range(3)] for row in range(10)]
     functions_section = sg.Column(functions, expand_y=True, pad=0)
 
     layout = [  [lhs, functions_section] ]
