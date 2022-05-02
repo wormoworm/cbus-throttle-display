@@ -11,6 +11,9 @@ from cbus_messages import CbusMessage, CbusMessageEngineReport, CbusMessageReque
 from throttle_helper import ThrottleHelper
 import PySimpleGUI as sg
 import textwrap
+from PIL import Image
+from io import BytesIO
+import requests
 
 DEBUG = False
 CAN_INTERFACE = "can0"
@@ -110,33 +113,16 @@ def cbus_message_listener(cbus_message: CbusMessage):
 
 def create_function_grid_item(function_number: int, alternate_bg_colour: bool):
     global throttle_helper
-    background_colour = "#111111" if alternate_bg_colour else "#181818"
-    layout = []
+    background_colour = "#151515" if alternate_bg_colour else "#1F1F1F"
     function_label_text = f"F{function_number}"
     try:
         function = throttle_helper.get_function(function_number)
+        function_name = sg.Text(f"{function['name']}", expand_x=True, pad=2, background_color=background_colour, font=FONT_VALUE)
         if not function["lockable"]:
             function_label_text+= " (mom)"
-        layout.append([sg.Text(f"{throttle_helper.get_function(function_number)['name']}", expand_x=True, pad=2, background_color=background_colour, font=FONT_VALUE)])
-    except IndexError:
-        layout.append([sg.Text("", background_color=background_colour, font=FONT_VALUE)])
-    layout.insert(0, [sg.Text(function_label_text, expand_x=True, expand_y=True, size=(18,1), pad=2, background_color=background_colour, font=FONT_LABEL)])
-    # try:
-    #     function_name = sg.Text(f"{throttle_helper.get_function(function_number)['name']}", expand_x=True, pad=2, background_color=background_colour, font=FONT_VALUE)
-    # except IndexError:
-    #     function_name = sg.Text("", background_color=background_colour)
-    # layout = [ [function_label], [function_name]]
-    return sg.Frame(title=None, layout=layout, pad=2, expand_y=True, background_color=background_colour, border_width=0)
-
-
-def create_function_grid_item_old(function_number: int, alternate_bg_colour: bool):
-    global throttle_helper
-    background_colour = "#111111" if alternate_bg_colour else "#181818"
-    function_label = sg.Text(f"F{function_number}", expand_x=True, size=(18,1), pad=2, background_color=background_colour, font=FONT_LABEL)
-    try:
-        function_name = sg.Text(f"{throttle_helper.get_function(function_number)['name']}", expand_x=True, pad=2, background_color=background_colour, font=FONT_VALUE)
     except IndexError:
         function_name = sg.Text("", background_color=background_colour)
+    function_label = sg.Text(function_label_text, expand_x=True, size=(18,1), pad=2, background_color=background_colour, font=FONT_LABEL)
     layout = [ [function_label], [function_name]]
     return sg.Frame(title=None, layout=layout, pad=2, expand_y=True, background_color=background_colour, border_width=0)
 
@@ -151,7 +137,6 @@ def display_roster_entry_window():
     # Set the theme
     sg.theme('Black')
     # All the stuff inside your window.
-    # throttle_helper.roster_entry["functions"]
 
     info_items = []
 
@@ -159,18 +144,36 @@ def display_roster_entry_window():
     info_address = sg.Frame(title=None, layout=[[sg.Text("Address", font=FONT_LABEL)], [sg.Text(throttle_helper.roster_entry["dcc_address"], size=(5,1), font=FONT_H2)]], pad=0, border_width=0)
 
     info_items.append([info_number, info_address])
+    lhs_items = []
 
     if throttle_helper.roster_entry["name"]:
         # Use textwrap to ensure the name fits, breaking into multiple lines if necessary
         for name_piece in textwrap.wrap(throttle_helper.roster_entry["name"], 25):
             info_items.append([sg.Text(name_piece, font=FONT_H2)])
+    
+    info_height = 600
+    if throttle_helper.roster_entry["image_file_path"]:
+        with Image.open(requests.get(f"https://roster.tomstrains.co.uk/api/v2/roster_entry/{throttle_helper.roster_entry['roster_id']}/image?size=502", stream=True).raw) as image:
+            image_bytes = BytesIO()
+            image.save(image_bytes, format="png")
+            # Calculate the image's aspect ratio, so that was can resize it correctly
+            width, height = image.size
+            aspect_ratio = width / height
+            desired_width = 502
+            desired_height = desired_width / aspect_ratio
+            lhs_items.append([sg.Image(source=image_bytes.getvalue(), size=(desired_width, desired_height), pad=0)])
+            info_height-= desired_height
+    
 
-    info_section = sg.Column(info_items, expand_y=True, pad=0, size=(502, 100))
+    info_section = sg.Frame(title=None, layout=info_items, size=(502, info_height), pad=0, border_width=0)
+    lhs_items.insert(0, [info_section])
+
+    lhs = sg.Column(lhs_items, pad=0, size=(502, 600))
 
     functions = [[create_function_grid_item(row + (column * 10), (row + column) % 2 == 0) for column in range(3)] for row in range(10)]
     functions_section = sg.Column(functions, expand_y=True, pad=0)
 
-    layout = [  [info_section, functions_section] ]
+    layout = [  [lhs, functions_section] ]
     roster_entry_window = sg.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), margins=(0,0), keep_on_top=True, background_color="#657381").Finalize()
     # Hide the mouse cursor. # TODO: Not working
     roster_entry_window.set_cursor("none")
