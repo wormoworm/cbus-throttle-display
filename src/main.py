@@ -11,7 +11,7 @@ from cbus_messages import CbusMessage, CbusMessageEngineReport, CbusMessageReque
 from throttle_helper import ThrottleHelper
 import PySimpleGUI as sg
 import textwrap
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from io import BytesIO
 import requests
 
@@ -154,7 +154,8 @@ def display_roster_entry_window():
             info_items.append([sg.Text(name_piece, font=FONT_H2)])
     
     info_height = 600
-    if throttle_helper.roster_entry["image_file_path"]:
+    # if throttle_helper.roster_entry["image_file_path"]:
+    try:
         with Image.open(requests.get(f"https://roster.tomstrains.co.uk/api/v2/roster_entry/{throttle_helper.roster_entry['roster_id']}/image?size=500", stream=True).raw) as image:
             image_bytes = BytesIO()
             image.save(image_bytes, format="png")
@@ -165,6 +166,8 @@ def display_roster_entry_window():
             desired_height = desired_width / aspect_ratio
             lhs_items.append([sg.Image(source=image_bytes.getvalue(), size=(desired_width, desired_height), pad=0)])
             info_height-= desired_height
+    except (FileNotFoundError, UnidentifiedImageError) as e:
+        logging.info(f"Image for roster entry with ID {throttle_helper.roster_entry['roster_id']} not found: {str(e)}")
     
 
     info_section = sg.Frame(title=None, layout=info_items, size=(502, info_height), pad=0, border_width=0)
