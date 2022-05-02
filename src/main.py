@@ -10,10 +10,19 @@ from cbus import CbusInterface
 from cbus_messages import CbusMessage, CbusMessageEngineReport, CbusMessageRequestEngineSession, CbusMessageSetEngineFunctions, CbusMessageSetEngineSpeedDir, CbusMessageReleaseEngine, CbusSessionMessage, Direction, FunctionState
 from throttle_helper import ThrottleHelper
 import PySimpleGUI as sg
+import textwrap
 
 DEBUG = False
 CAN_INTERFACE = "can0"
 CAN_BITRATE = 125000
+
+FONT_H1 = "_ 30"
+FONT_H2 = "_ 24"
+FONT_H3 = "_ 18"
+FONT_H4 = "_ 16"
+FONT_BODY  = "_ 12"
+FONT_LABEL = "_ 10 bold"
+FONT_VALUE = "_ 14"
 
 cbus_interface: CbusInterface
 
@@ -102,9 +111,30 @@ def cbus_message_listener(cbus_message: CbusMessage):
 def create_function_grid_item(function_number: int, alternate_bg_colour: bool):
     global throttle_helper
     background_colour = "#111111" if alternate_bg_colour else "#181818"
-    function_label = sg.Text(f"F{function_number}", expand_x=True, size=(22,1), pad=2, background_color=background_colour)
+    layout = []
+    function_label_text = f"F{function_number}"
     try:
-        function_name = sg.Text(f"{throttle_helper.get_function(function_number)['name']}", expand_x=True, pad=2, background_color=background_colour, font="_ 14")
+        function = throttle_helper.get_function(function_number)
+        if not function["lockable"]:
+            function_label_text+= " (mom)"
+        layout.append([sg.Text(f"{throttle_helper.get_function(function_number)['name']}", expand_x=True, pad=2, background_color=background_colour, font=FONT_VALUE)])
+    except IndexError:
+        layout.append([sg.Text("", background_color=background_colour, font=FONT_VALUE)])
+    layout.insert(0, [sg.Text(function_label_text, expand_x=True, expand_y=True, size=(18,1), pad=2, background_color=background_colour, font=FONT_LABEL)])
+    # try:
+    #     function_name = sg.Text(f"{throttle_helper.get_function(function_number)['name']}", expand_x=True, pad=2, background_color=background_colour, font=FONT_VALUE)
+    # except IndexError:
+    #     function_name = sg.Text("", background_color=background_colour)
+    # layout = [ [function_label], [function_name]]
+    return sg.Frame(title=None, layout=layout, pad=2, expand_y=True, background_color=background_colour, border_width=0)
+
+
+def create_function_grid_item_old(function_number: int, alternate_bg_colour: bool):
+    global throttle_helper
+    background_colour = "#111111" if alternate_bg_colour else "#181818"
+    function_label = sg.Text(f"F{function_number}", expand_x=True, size=(18,1), pad=2, background_color=background_colour, font=FONT_LABEL)
+    try:
+        function_name = sg.Text(f"{throttle_helper.get_function(function_number)['name']}", expand_x=True, pad=2, background_color=background_colour, font=FONT_VALUE)
     except IndexError:
         function_name = sg.Text("", background_color=background_colour)
     layout = [ [function_label], [function_name]]
@@ -123,11 +153,19 @@ def display_roster_entry_window():
     # All the stuff inside your window.
     # throttle_helper.roster_entry["functions"]
 
-    info = [
-        [sg.Text(throttle_helper.roster_entry["name"], expand_x=True)],
-        [sg.Text(throttle_helper.roster_entry["number"], expand_x=True)]
-        ]
-    info_section = sg.Column(info, expand_y=True, pad=0, size=(526, 100), background_color="red")
+    info_items = []
+
+    info_number = sg.Frame(title=None, layout=[[sg.Text("Number", font=FONT_LABEL)], [sg.Text(throttle_helper.roster_entry["number"], size=(8,1), font=FONT_H2)]], pad=0, border_width=0)
+    info_address = sg.Frame(title=None, layout=[[sg.Text("Address", font=FONT_LABEL)], [sg.Text(throttle_helper.roster_entry["dcc_address"], size=(5,1), font=FONT_H2)]], pad=0, border_width=0)
+
+    info_items.append([info_number, info_address])
+
+    if throttle_helper.roster_entry["name"]:
+        # Use textwrap to ensure the name fits, breaking into multiple lines if necessary
+        for name_piece in textwrap.wrap(throttle_helper.roster_entry["name"], 25):
+            info_items.append([sg.Text(name_piece, font=FONT_H2)])
+
+    info_section = sg.Column(info_items, expand_y=True, pad=0, size=(502, 100))
 
     functions = [[create_function_grid_item(row + (column * 10), (row + column) % 2 == 0) for column in range(3)] for row in range(10)]
     functions_section = sg.Column(functions, expand_y=True, pad=0)
@@ -210,5 +248,5 @@ if __name__ == "__main__":
     loop.create_task(cbus_interface.listen(cbus_message_listener))
     # loop.create_task(test_gui())
     # TODO:TEMP
-    DUMMY_manual_load("6016")
+    DUMMY_manual_load("6957")
     loop.run_forever()
