@@ -15,7 +15,7 @@ from PIL import Image, UnidentifiedImageError
 from io import BytesIO
 import requests
 
-DEBUG = False
+DEBUG = True
 CAN_INTERFACE = "can0"
 CAN_BITRATE = 125000
 

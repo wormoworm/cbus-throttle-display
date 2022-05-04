@@ -17,7 +17,7 @@ class ThrottleHelper:
 
     def set_address(self, address: int):
         # TODO: Fetch from roster API.
-        logging.debug("Fetching details for address %d", address)
+        logging.debug("Fetching details for address %s", address)
         roster_entry_response = get(f"https://roster.tomstrains.co.uk/api/v2/roster_entry/address/{address}")
         if roster_entry_response.status_code == 200:
             self.process_roster_entry_response(roster_entry_response)
