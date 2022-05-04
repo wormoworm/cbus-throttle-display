@@ -129,9 +129,7 @@ def create_function_grid_item(function_number: int, alternate_bg_colour: bool):
     return sg.Frame(title=None, layout=layout, pad=2, expand_y=True, background_color=background_colour, border_width=0)
 
 
-def display_roster_entry_window():
-    global roster_entry_window, throttle_helper
-
+def prepare_ui():
     if os.environ.get('DISPLAY','') == '':
         logging.warning('no display found. Using :0.0')
         os.environ.__setitem__('DISPLAY', ':0.0')
@@ -139,6 +137,19 @@ def display_roster_entry_window():
     # Set the theme
     sg.theme('Black')
     # All the stuff inside your window.
+
+
+def display_home_window():
+    layout = [ [sg.VPush()],
+        [ sg.Push(), sg.Text("No locomotive selected", font=FONT_H2), sg.Push() ],
+        [sg.VPush()] ]
+    home_window = sg.Window(title="Home", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), margins=(0,0), keep_on_top=True).Finalize()
+
+
+def display_roster_entry_window():
+    global roster_entry_window, throttle_helper
+
+    
 
     info_items = []
 
@@ -179,7 +190,7 @@ def display_roster_entry_window():
     functions_section = sg.Column(functions, expand_y=True, pad=0)
 
     layout = [  [lhs, functions_section] ]
-    roster_entry_window = sg.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), margins=(0,0), keep_on_top=True, background_color="#657381").Finalize()
+    roster_entry_window = sg.Window(title="Hello World", layout=layout, no_titlebar=True, location=(0,0), size=(1024,600), margins=(0,0), keep_on_top=True).Finalize()
     # Hide the mouse cursor. # TODO: Not working
     roster_entry_window.set_cursor("none")
 
@@ -255,6 +266,8 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(cbus_interface.listen(cbus_message_listener))
     # loop.create_task(test_gui())
+    prepare_ui()
+    display_home_window()
     # TODO:TEMP
-    DUMMY_manual_load("6957")
+    # DUMMY_manual_load("6957")
     loop.run_forever()
